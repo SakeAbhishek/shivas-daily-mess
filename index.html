@@ -1,0 +1,181 @@
+// THE DATABASE OF ITEMS
+const menuDatabase = [
+    { id: 1, name: "Uggani Bajji", price: 50, type: "veg", desc: "Rayalaseema style puffed rice with 2 mirchi bajjis." },
+    { id: 2, name: "Idli Sambar", price: 40, type: "veg", desc: "4 soft idlis soaked in hot, spicy sambar." },
+    { id: 3, name: "Ghee Karampodi Dosa", price: 60, type: "veg", desc: "Crispy dosa roasted in ghee with extra spicy garlic podi." },
+    { id: 4, name: "Shiva's Veg Thali", price: 100, type: "veg", desc: "Rice, dal, 2 curries, sambar, rasam, curd, appadam." },
+    { id: 5, name: "Ragi Mudde & Natu Kodi", price: 180, type: "nonveg", desc: "1 Ragi Mudde with extra fiery country chicken pulusu." },
+    { id: 6, name: "Chicken Dum Biryani", price: 150, type: "nonveg", desc: "Aromatic basmati rice cooked with tender chicken." },
+    { id: 7, name: "Mutton Biryani", price: 220, type: "nonveg", desc: "Special weekend mutton biryani with raita and salan." },
+    { id: 8, name: "Egg Fried Rice", price: 80, type: "nonveg", desc: "Street-style fast food double egg fried rice." },
+    { id: 9, name: "Chapati & Chicken Curry", price: 120, type: "nonveg", desc: "3 soft chapatis with rich chicken gravy." },
+    { id: 10, name: "Curd Rice", price: 60, type: "veg", desc: "Soothing curd rice with pomegranate and pickle." }
+];
+
+let cart = {}; // Stores item ID and quantity { id: qty }
+let currentUser = null;
+
+window.onload = function() {
+    let savedUser = localStorage.getItem("shivasCustomer");
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        document.getElementById("login-btn").innerText = "Hi, " + currentUser.name.split(" ")[0];
+    }
+    renderMenu(); // Load the food on screen
+};
+
+// --- RENDER MENU DYNAMICALLY ---
+function renderMenu() {
+    let searchQuery = document.getElementById("search-bar").value.toLowerCase();
+    let menuDisplay = document.getElementById("menu-display");
+    menuDisplay.innerHTML = ""; 
+
+    let filteredItems = menuDatabase.filter(item => item.name.toLowerCase().includes(searchQuery));
+
+    if(filteredItems.length === 0) {
+        menuDisplay.innerHTML = "<p style='text-align:center;'>No items found.</p>";
+        return;
+    }
+
+    let grid = document.createElement("div");
+    grid.className = "menu-grid";
+
+    filteredItems.forEach(item => {
+        let tagIcon = item.type === "veg" ? "<span class='tag veg'>🟢 Veg</span>" : "<span class='tag nonveg'>🔴 Non-Veg</span>";
+        
+        grid.innerHTML += `
+            <div class="menu-item">
+                <div class="item-details">
+                    <h4>${item.name} ${tagIcon}</h4>
+                    <p>${item.desc}</p>
+                    <div class="price">₹${item.price}</div>
+                </div>
+                <button class="add-btn" onclick="addToCart(${item.id})">Add</button>
+            </div>
+        `;
+    });
+    menuDisplay.appendChild(grid);
+}
+
+// --- ADVANCED CART SYSTEM ---
+function addToCart(id) {
+    if (cart[id]) {
+        cart[id]++;
+    } else {
+        cart[id] = 1;
+    }
+    updateCart();
+}
+
+function changeQty(id, change) {
+    cart[id] += change;
+    if (cart[id] <= 0) {
+        delete cart[id]; // Remove item if quantity goes to 0
+    }
+    updateCart();
+}
+
+function updateCart() {
+    let cartList = document.getElementById("cart-items");
+    let billSection = document.getElementById("bill-section");
+    cartList.innerHTML = ""; 
+    
+    let itemTotal = 0;
+    let cartEmpty = true;
+
+    // Loop through the cart object
+    for (let id in cart) {
+        cartEmpty = false;
+        let qty = cart[id];
+        let item = menuDatabase.find(i => i.id == id);
+        let itemCost = item.price * qty;
+        itemTotal += itemCost;
+
+        cartList.innerHTML += `
+            <div class="cart-item">
+                <div>
+                    <strong>${item.name}</strong><br>
+                    <small>₹${item.price} x ${qty}</small>
+                </div>
+                <div class="qty-controls">
+                    <button class="qty-btn" onclick="changeQty(${id}, -1)">-</button>
+                    <span style="font-weight:bold; font-size:1.1rem;">${qty}</span>
+                    <button class="qty-btn" onclick="changeQty(${id}, 1)">+</button>
+                </div>
+            </div>
+        `;
+    }
+
+    if (cartEmpty) {
+        cartList.innerHTML = "<p style='text-align:center; color:#999;'>Cart is empty</p>";
+        billSection.style.display = "none";
+    } else {
+        billSection.style.display = "block";
+        document.getElementById("item-total").innerText = "₹" + itemTotal;
+        
+        // Advanced Logic: Free Delivery over ₹200
+        let deliveryFee = itemTotal > 200 ? 0 : 20;
+        document.getElementById("delivery-fee").innerText = "₹" + deliveryFee;
+        
+        let grandTotal = itemTotal + deliveryFee;
+        document.getElementById("grand-total").innerText = "₹" + grandTotal;
+    }
+}
+
+// --- USER PROFILE SYSTEM ---
+function openLoginModal() { document.getElementById("login-modal").style.display = "flex"; }
+function closeLoginModal() { document.getElementById("login-modal").style.display = "none"; }
+
+function saveUser() {
+    let name = document.getElementById("user-name").value;
+    let phone = document.getElementById("user-phone").value;
+    let address = document.getElementById("user-address").value;
+
+    if (!name || !phone || !address) {
+        alert("Please fill all details!"); return;
+    }
+    currentUser = { name, phone, address };
+    localStorage.setItem("shivasCustomer", JSON.stringify(currentUser));
+    document.getElementById("login-btn").innerText = "Hi, " + name.split(" ")[0];
+    closeLoginModal();
+}
+
+// --- CHECKOUT ---
+function sendToWhatsApp() {
+    if (Object.keys(cart).length === 0) {
+        alert("Add some items first!"); return;
+    }
+    if (!currentUser) {
+        alert("Please login to provide your delivery address.");
+        openLoginModal(); return;
+    }
+
+    // IMPORTANT: CHANGE THIS TO YOUR ACTUAL PHONE NUMBER
+    let adminPhone = "919876543210"; 
+    
+    let itemTotal = 0;
+    let message = "🚀 *NEW ORDER - SHIVA'S DAILY MESS* 🚀\n\n";
+    message += "👤 *Name:* " + currentUser.name + "\n";
+    message += "📞 *Phone:* " + currentUser.phone + "\n";
+    message += "📍 *Address:* " + currentUser.address + "\n\n";
+    message += "*--- ORDER DETAILS ---*\n";
+    
+    for (let id in cart) {
+        let qty = cart[id];
+        let item = menuDatabase.find(i => i.id == id);
+        let itemCost = item.price * qty;
+        itemTotal += itemCost;
+        message += "▪️ " + qty + "x " + item.name + " (₹" + itemCost + ")\n";
+    }
+
+    let deliveryFee = itemTotal > 200 ? 0 : 20;
+    let grandTotal = itemTotal + deliveryFee;
+
+    message += "\n*Item Total:* ₹" + itemTotal + "\n";
+    message += "*Delivery Fee:* ₹" + deliveryFee + "\n";
+    message += "💰 *GRAND TOTAL: ₹" + grandTotal + "*\n\n";
+    message += "_Ready to pay via UPI upon delivery._";
+
+    let encodedMessage = encodeURIComponent(message);
+    window.open("https://wa.me/" + adminPhone + "?text=" + encodedMessage, "_blank");
+}
